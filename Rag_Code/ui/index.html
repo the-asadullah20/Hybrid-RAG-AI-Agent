@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid RAG AI Agent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="light-theme">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <!-- Header -->
+            <div class="sidebar-header">
+                <div class="sidebar-header-top">
+                    <h1 class="sidebar-title">Hybrid RAG</h1>
+                    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+                        <i class="fas fa-moon" id="themeIcon"></i>
+                    </button>
+                </div>
+
+                <!-- View Mode Toggle -->
+                <div class="view-toggle">
+                    <button class="view-btn active" data-view="chats" id="chatsViewBtn">
+                        <i class="fas fa-comments"></i>
+                        <span>Chats</span>
+                    </button>
+                    <button class="view-btn" data-view="statistics" id="statsViewBtn">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Stats</span>
+                    </button>
+                </div>
+
+                <!-- New Chat Button (only in chats view) -->
+                <button class="new-chat-btn" id="newChatBtn">
+                    <i class="fas fa-plus"></i>
+                    New Chat
+                </button>
+            </div>
+
+            <!-- Sidebar Content -->
+            <div class="sidebar-content" id="sidebarContent">
+                <!-- Chats View -->
+                <div class="chats-view" id="chatsView">
+                    <!-- Search Chats -->
+                    <div class="chat-search-container">
+                        <input 
+                            type="text" 
+                            class="chat-search-input" 
+                            id="chatSearchInput"
+                            placeholder="Search chats..."
+                        >
+                        <i class="fas fa-search chat-search-icon"></i>
+                    </div>
+                    {% if chats %}
+                        <div class="chats-list" id="chatsList">
+                            {% for chat in chats %}
+                            <div class="chat-item" data-chat-id="{{ chat.id }}">
+                                <i class="fas fa-comment chat-icon"></i>
+                                <div class="chat-info">
+                                    <p class="chat-title">{{ chat.title }}</p>
+                                    <p class="chat-meta">{{ chat.messages|length }} messages</p>
+                                </div>
+                                <button class="chat-delete" data-chat-id="{{ chat.id }}" aria-label="Delete chat">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-comments empty-icon"></i>
+                            <p>No chats yet</p>
+                            <p class="empty-subtitle">Start a new conversation</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Statistics View -->
+                <div class="statistics-view hidden" id="statisticsView">
+                    <div class="stats-card">
+                        <h3 class="stats-card-title">Overview</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <p class="stat-label">Total Chats</p>
+                                <p class="stat-value" id="statTotalChats">{{ statistics.total_chats }}</p>
+                            </div>
+                            <div class="stat-item">
+                                <p class="stat-label">Total Messages</p>
+                                <p class="stat-value" id="statTotalMessages">{{ statistics.total_messages }}</p>
+                            </div>
+                            <div class="stat-item">
+                                <p class="stat-label">Avg Response Time</p>
+                                <p class="stat-value" id="statAvgTime">{{ statistics.average_response_time }}s</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <h3 class="stats-card-title">Search Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <p class="stat-label">Vector Searches</p>
+                                <p class="stat-value" id="statVectorSearches">{{ statistics.vector_searches }}</p>
+                            </div>
+                            <div class="stat-item">
+                                <p class="stat-label">Graph Searches</p>
+                                <p class="stat-value" id="statGraphSearches">{{ statistics.graph_searches }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer">
+                <!-- Settings Section -->
+                <div class="settings-section">
+                    <button class="settings-toggle" id="settingsToggle">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                        <i class="fas fa-chevron-down settings-chevron" id="settingsChevron"></i>
+                    </button>
+                    
+                    <div class="settings-panel hidden" id="settingsPanel">
+                        <!-- Theme Color Selector -->
+                        <div class="setting-item">
+                            <label class="setting-label">Theme Color</label>
+                            <div class="color-picker">
+                                <button class="color-btn active" data-color="blue" style="background-color: #3B82F6;" title="Blue"></button>
+                                <button class="color-btn" data-color="purple" style="background-color: #8B5CF6;" title="Purple"></button>
+                                <button class="color-btn" data-color="green" style="background-color: #10B981;" title="Green"></button>
+                                <button class="color-btn" data-color="orange" style="background-color: #F59E0B;" title="Orange"></button>
+                                <button class="color-btn" data-color="pink" style="background-color: #EC4899;" title="Pink"></button>
+                                <button class="color-btn" data-color="red" style="background-color: #EF4444;" title="Red"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Welcome Screen / Chat Area -->
+            <div class="chat-container" id="chatContainer">
+                <div class="welcome-screen" id="welcomeScreen">
+                    <h1 class="welcome-title">
+                        <span class="welcome-word" style="animation-delay: 0.1s">Welcome</span>
+                        <span class="welcome-word" style="animation-delay: 0.2s">to</span>
+                        <span class="welcome-word" style="animation-delay: 0.3s">Hybrid</span>
+                        <span class="welcome-word" style="animation-delay: 0.4s">RAG</span>
+                        <span class="welcome-word" style="animation-delay: 0.5s">AI</span>
+                        <span class="welcome-word" style="animation-delay: 0.6s">Agent</span>
+                    </h1>
+                    <p class="welcome-subtitle">Ask questions, upload documents, and explore the knowledge graph!</p>
+                    
+                    <!-- System Characteristics & Features -->
+                    <div class="features-section">
+                        <div class="features-header">
+                            <i class="fas fa-star features-icon"></i>
+                            <h2 class="features-title">System Characteristics & Features</h2>
+                        </div>
+                        <div class="features-grid">
+                            <div class="feature-card">
+                                <div class="feature-icon-wrapper">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-search"></i>
+                                    </div>
+                                </div>
+                                <h3 class="feature-name">Semantic Search</h3>
+                                <p class="feature-desc">Semantic search with embeddings for intelligent retrieval.</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon-wrapper">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-comments"></i>
+                                    </div>
+                                </div>
+                                <h3 class="feature-name">Interactive Chat</h3>
+                                <p class="feature-desc">Interactive chat interface with conversation memory.</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon-wrapper">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-project-diagram"></i>
+                                    </div>
+                                </div>
+                                <h3 class="feature-name">Agent Memory</h3>
+                                <p class="feature-desc">Conversation and long-term memory integration.</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon-wrapper">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-file-pdf"></i>
+                                    </div>
+                                </div>
+                                <h3 class="feature-name">PDF Processing</h3>
+                                <p class="feature-desc">PDF ingestion + extraction capabilities.</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon-wrapper">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-bell"></i>
+                                    </div>
+                                </div>
+                                <h3 class="feature-name">Real-time Monitoring</h3>
+                                <p class="feature-desc">Real-time monitoring or alerts system.</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon-wrapper">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                </div>
+                                <h3 class="feature-name">Pattern Detection</h3>
+                                <p class="feature-desc">Intelligent pattern detection in queries.</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon-wrapper">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-lightbulb"></i>
+                                    </div>
+                                </div>
+                                <h3 class="feature-name">Recommendation System</h3>
+                                <p class="feature-desc">Advanced recommendation system.</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon-wrapper">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                </div>
+                                <h3 class="feature-name">Anomaly Detection</h3>
+                                <p class="feature-desc">Advanced anomaly detection in query patterns.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Messages Area -->
+                <div class="messages-area hidden" id="messagesArea">
+                    <div class="messages-list" id="messagesList">
+                        <!-- Messages will be dynamically added here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Buttons -->
+            <div class="analytics-buttons" id="analyticsButtons" style="display: none;">
+                <button class="analytics-btn" id="patternsBtn" title="View Query Patterns">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>Patterns</span>
+                </button>
+                <button class="analytics-btn" id="anomaliesBtn" title="View Anomalies">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Anomalies</span>
+                </button>
+                <button class="analytics-btn" id="trendsBtn" title="View Trends">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Trends</span>
+                </button>
+                <button class="analytics-btn" id="recommendationsBtn" title="View Recommendations">
+                    <i class="fas fa-lightbulb"></i>
+                    <span>Recommendations</span>
+                </button>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <input 
+                            type="text" 
+                            class="message-input" 
+                            id="messageInput"
+                            placeholder="Message Hybrid RAG AI Agent..."
+                        >
+                        <button class="upload-btn-inline" id="uploadBtnSmall" aria-label="Upload PDF" title="Upload PDF Document">
+                            <i class="fas fa-file-pdf"></i>
+                        </button>
+                        <button class="voice-btn-inline" id="voiceBtn" aria-label="Voice input" title="Voice Input">
+                            <i class="fas fa-microphone" id="voiceIcon"></i>
+                        </button>
+                    </div>
+                    <button class="send-btn" id="sendBtn" aria-label="Send message">
+                        <i class="fas fa-play"></i>
+                    </button>
+                </div>
+                <div class="voice-status" id="voiceStatus" style="display: none;">
+                    <span id="voiceStatusText">Listening...</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Analytics Modal -->
+    <div class="analytics-modal" id="analyticsModal">
+        <div class="analytics-modal-content">
+            <div class="analytics-modal-header">
+                <h2 class="analytics-modal-title" id="analyticsModalTitle">Analytics</h2>
+                <button class="analytics-modal-close" id="analyticsModalClose">&times;</button>
+            </div>
+            <div class="analytics-modal-body" id="analyticsModalBody">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
